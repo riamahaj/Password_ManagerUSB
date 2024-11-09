@@ -4,6 +4,19 @@
 #include <Adafruit_SSD1306.h>
 #include <Bounce2.h>
 
+#ifndef ARDUINO_USB_MODE
+#error This ESP32 SoC has no Native USB interface
+#elif ARDUINO_USB_MODE == 1
+#warning This sketch should be used when USB is in OTG mode
+void setup() {}
+void loop() {}
+#else
+
+#include "USB.h"
+#include "USBHIDKeyboard.h"
+USBHIDKeyboard Keyboard;
+
+
 // INSTANTIATE A Button OBJECT FROM THE Bounce2 NAMESPACE
 Bounce2::Button button1 = Bounce2::Button();
 Bounce2::Button button2 = Bounce2::Button();
@@ -26,6 +39,9 @@ void setup() {
   // INDICATE THAT THE LOW STATE CORRESPONDS TO PHYSICALLY PRESSING THE BUTTON
   button1.setPressedState(LOW); 
   button2.setPressedState(LOW);
+
+  Keyboard.begin();
+  USB.begin();
 
   setup_screen();    
 
@@ -67,7 +83,7 @@ void loop() {
     //button pressed
     //increment name/password field in CSV file
     Serial.println("button press");
-    if (counter < 2 && counter >= 0)
+    if (counter < 3 && counter >= 0)
     {
       ++counter;
     }
@@ -91,8 +107,11 @@ void loop() {
   if (button2.pressed()){
     //button2 pressed
     //output the password field to PC
+    Keyboard.print(strings2[counter]);
+    delay(25);
+    Keyboard.write(KEY_RETURN);
   }
-  else {}
   
 
 }
+#endif

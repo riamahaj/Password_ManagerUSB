@@ -7,7 +7,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <ezButton.h>
 
 
 
@@ -19,7 +18,6 @@ int cs = 41;
 
 void setup_sd()
 {
-  Serial.begin(115200);
   while (!Serial) {
     delay(10);
   }

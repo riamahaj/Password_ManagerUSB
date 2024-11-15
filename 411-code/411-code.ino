@@ -3,6 +3,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Bounce2.h>
+#include "SimpleArduinoEncryption.h"
+#include <SPI.h>
+#include "SD.h"
 
 #ifndef ARDUINO_USB_MODE
 #error This ESP32 SoC has no Native USB interface
@@ -16,26 +19,87 @@ void loop() {}
 #include "USBHIDKeyboard.h"
 USBHIDKeyboard Keyboard;
 
+//struct to hold name and password
+struct name_password{
+  char *Name;
+  char *password;
+};
+
+typedef struct name_password Struct;
+
+
+// Encryption keys
+const byte ENCRYPTION_KEYS[] = {0xAA, 0xBB, 0xCC, 0xCB};
+const size_t NUM_KEYS = sizeof(ENCRYPTION_KEYS) / sizeof(ENCRYPTION_KEYS[0]);
+
+// Initialize encryption object with keys
+SimpleArduinoEncryption encryption(ENCRYPTION_KEYS, NUM_KEYS);
+CSV_Parser en(/*format*/ "s", /*has_header*/ false);
+CSV_Parser de(/*format*/ "s--s-", /*has_header*/ false);
 
 // INSTANTIATE A Button OBJECT FROM THE Bounce2 NAMESPACE
 Bounce2::Button button1 = Bounce2::Button();
 Bounce2::Button button2 = Bounce2::Button();
 
-char **strings1;
-char **strings2;
+char **en_hex;
+char **Name;
+char **password;
+
 extern int buttonPin1;
 extern int buttonPin2;
 
+Struct result;
+
+
+
+Struct decrypt_display(char *encryptedHex, int row)
+{ 
+  Struct s;
+
+  // Calculate buffer length and allocate memory
+  size_t length = strlen(encryptedHex) / 2;
+  byte message[length + 1];
+
+  // Convert hexadecimal string to bytes
+  SimpleArduinoEncryption::hexToBytes(encryptedHex, message, length);
+
+  // Print encrypted data in hex format
+  Serial.print("Encrypted String (Hex): ");
+  SimpleArduinoEncryption::printHex(message, length);
+
+  // Decrypt the message
+  encryption.decrypt((char*)message);
+  String decryptedString = String((char*)message);
+
+  Serial.print("Decrypted String: ");
+  Serial.println(decryptedString);
+
+  de << decryptedString;
+  de.parseLeftover();
+
+  //set 0th column as name, 3th column as password
+  Name = (char**)de[0];
+  password = (char**)de[3];
+
+  s.Name = Name[row];
+  s.password = password[row];
+  return s;
+}
+
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(9600);
+  
   setup_sd();
   //setup_button();
+  
   button1.attach(buttonPin1 ,INPUT_PULLUP ); 
   button2.attach(buttonPin2 ,INPUT_PULLUP ); 
+  
   // DEBOUNCE INTERVAL IN MILLISECONDS
-  button1.interval(5);
+  button1.interval(10);
   button2.interval(5); 
+  
   // INDICATE THAT THE LOW STATE CORRESPONDS TO PHYSICALLY PRESSING THE BUTTON
   button1.setPressedState(LOW); 
   button2.setPressedState(LOW);
@@ -43,24 +107,24 @@ void setup() {
   Keyboard.begin();
   USB.begin();
 
-  setup_screen();    
-
-  CSV_Parser cp(/*format*/ "ss", /*has_header*/ true);
+  setup_screen(); 
 
   // The line below (readSDfile) wouldn't work if SD.begin wasn't called before.
   // readSDfile can be used as conditional, it returns 'false' if the file does not exist.
-  if (cp.readSDfile("/manage.csv")) {
-    strings1 = (char**)cp["Name"];    
-    strings2 = (char**)cp["Password"];
+  if (en.readSDfile("/encrypt_pass.csv")) {
+    
+    en_hex=(char**)en[0];
+
+    
     // output parsed values (allows to check that the file was parsed correctly)
-    cp.print(); // assumes that "Serial.begin()" was called before (otherwise it won't work)
+    en.print(); // assumes that "Serial.begin()" was called before (otherwise it won't work)
     
   } else {
   Serial.println("ERROR: File called '/file.csv' does not exist...");
   }
+  //result = decrypt_display(en_hex[0],0);
 
 }
-
 // button variables
 int buttonState1;         // variable for reading the pushbutton status
 int buttonState2;
@@ -72,9 +136,6 @@ int counter = 0;
 void loop() {
   
   // read the state of the pushbutton value:
-  //buttonState1 = digitalRead(buttonPin1);
-  //buttonState2 = digitalRead(buttonPin2);
-
   button1.update();
   button2.update();
 
@@ -83,31 +144,32 @@ void loop() {
     //button pressed
     //increment name/password field in CSV file
     Serial.println("button press");
-    if (counter < 3 && counter >= 0)
+    result = decrypt_display(en_hex[counter],counter);
+
+    if (counter < en.getRowsCount()-1 && counter >= 0)
     {
       ++counter;
     }
-    else{
+    else {
       counter = 0;
     }
-  } 
-  //button not pressed, display the account name on OLED screen
-  else {
+  }
+  else
+  {
     display.clearDisplay();
     display.setTextSize(2);
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(20,10);
     display.setTextSize(2);
-    display.println(strings1[counter]);
+    display.println(result.Name);
     show();
-    Serial.println(strings1[counter]);
+    Serial.println(result.Name);
   }
-  
-  
+    
   if (button2.pressed()){
     //button2 pressed
     //output the password field to PC
-    Keyboard.print(strings2[counter]);
+    Keyboard.print(result.password);
     delay(25);
     Keyboard.write(KEY_RETURN);
   }

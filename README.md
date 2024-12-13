@@ -5,3 +5,5 @@ It has 32GB space for extra storage and has encryption features, as well as a we
 
 
 ![20241212_200830](https://github.com/user-attachments/assets/71396399-acbc-4ec3-a374-ffd5c6f27fff)
+
+![image](https://github.com/user-attachments/assets/beb4ccbd-3e85-40cc-9e02-c9d83e977e60)

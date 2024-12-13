@@ -6,7 +6,8 @@
 #include "SimpleArduinoEncryption.h"
 #include <SPI.h>
 #include "SD.h"
-/**/#include <string>
+//
+#include <string>
 
 #ifndef ARDUINO_USB_MODE
 #error This ESP32 SoC has no Native USB interface

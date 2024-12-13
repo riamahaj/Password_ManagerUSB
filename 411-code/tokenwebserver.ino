@@ -45,7 +45,8 @@ String calculatePasswordStrength(const String& password) {
   }
 
   // Score password strength based on criteria
-  if (n >= 8) strength += 1;
+  if (n >= 12) strength += 1;
+  if (n >= 16) strength += 1;
   if (hasLower) strength += 1;
   if (hasUpper) strength += 1;
   if (specialChar) strength += 1;

@@ -37,6 +37,8 @@ void setup_sd()
 // constants won't change. They're used here to set pin numbers:
 int buttonPin1 = 13;     // the number of the pushbutton pin
 int buttonPin2 = 10;
+int buttonPin3 = 15;
+int buttonPin4 = 14;
 
 // variables will change:
 //extern int buttonState = 0;         // variable for reading the pushbutton status
@@ -74,18 +76,18 @@ void setup_screen()
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
   display.display();
-  delay(2000); // Pause for 2 seconds
+  //delay(2000); // Pause for 2 seconds
 
   // Clear the buffer
   display.clearDisplay();
 
   // Draw a single pixel in white
-  display.drawPixel(10, 10, SSD1306_WHITE);
+  display.println("Loading...");
 
   // Show the display buffer on the screen. You MUST call display() after
   // drawing commands to make them visible on screen!
   display.display();
-  delay(2000);
+  //delay(2000);
 }
 
 void show()

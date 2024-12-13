@@ -6,8 +6,6 @@
 #include "SimpleArduinoEncryption.h"
 #include <SPI.h>
 #include "SD.h"
-//
-#include <string>
 
 #ifndef ARDUINO_USB_MODE
 #error This ESP32 SoC has no Native USB interface
@@ -21,11 +19,12 @@ void loop() {}
 #include "USBHIDKeyboard.h"
 USBHIDKeyboard Keyboard;
 
+File csvFile;
+
 //struct to hold name and password
 struct name_password{
   char *Name;
   char *password;
-/**/char *strength;
 };
 
 typedef struct name_password Struct;
@@ -37,20 +36,27 @@ const size_t NUM_KEYS = sizeof(ENCRYPTION_KEYS) / sizeof(ENCRYPTION_KEYS[0]);
 
 // Initialize encryption object with keys
 SimpleArduinoEncryption encryption(ENCRYPTION_KEYS, NUM_KEYS);
+
 CSV_Parser en(/*format*/ "s", /*has_header*/ false);
 CSV_Parser de(/*format*/ "s--s-", /*has_header*/ false);
 
 // INSTANTIATE A Button OBJECT FROM THE Bounce2 NAMESPACE
 Bounce2::Button button1 = Bounce2::Button();
 Bounce2::Button button2 = Bounce2::Button();
+Bounce2::Button button3 = Bounce2::Button();
+Bounce2::Button button4 = Bounce2::Button();
 
 char **en_hex;
 char **Name;
 char **password;
-/**/char **strength
 
 extern int buttonPin1;
 extern int buttonPin2;
+extern int buttonPin3;
+extern int buttonPin4;
+
+extern Adafruit_SSD1306 display;
+
 
 Struct result;
 
@@ -85,59 +91,8 @@ Struct decrypt_display(char *encryptedHex, int row)
   Name = (char**)de[0];
   password = (char**)de[3];
 
-  ////////DanielBreakingStuffStart/////////
-    int n = password.length();
-    int Strength = 0;
-    string strength = "";
-// Initialize varibles and define special characters
-    bool hasLower = false, hasUpper = false;
-    bool hasNum = false, specialChar = false;
-    string normalChars = "abcdefghijklmnopqrstu"
-        "vwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890 ";
-
-// Check what character types are present
-    for (int i = 0; i < n; i++) {
-        if (islower(password[i]))
-            hasLower = true;
-        if (isupper(password[i]))
-            hasUpper = true;
-        if (isdigit(password[i]))
-            hasNum = true;
-        size_t special = password.find_first_not_of(normalChars);
-        if (special != string::npos)
-            specialChar = true;
-    }
-
-// Algorithm to score password strength
-    if((n >= 8) == true) 
-	Strength += 1;
-    if(hasLower == true)
-	Strength += 1;
-    if(hasUpper == true)
-	Strength += 1;
-    if(specialChar == true)
-	Strength += 1;
-    if(hasNum == true)
-	Strength += 1;
-// Print stars #1
-    for (int i = 0; i < Strength; ++i)
-        Serial.print("*");
-// Print stars #2
-    if (Strength == 1) {
-        strength = "*";
-    } else if (Strength == 2) {
-        strength = "**";
-    } else if (Strength == 3) {
-        strength = "***";
-    } else if (Strength == 4) {
-        strength = "****";
-    } else if (Strength == 5) {
-        strength = "*****";
-}    
-  ////////DanielBreakingStuffEnd/////////
   s.Name = Name[row];
   s.password = password[row];
-  s.strength = strength;
   return s;
 }
 
@@ -146,26 +101,63 @@ void setup() {
   Serial.begin(9600);
   
   setup_sd();
-  //setup_button();
   
   button1.attach(buttonPin1 ,INPUT_PULLUP ); 
   button2.attach(buttonPin2 ,INPUT_PULLUP ); 
+  button3.attach(buttonPin3, INPUT_PULLUP);
+  button4.attach(buttonPin4, INPUT_PULLUP);
   
   // DEBOUNCE INTERVAL IN MILLISECONDS
   button1.interval(10);
   button2.interval(5); 
+  button3.interval(10);
+  button4.interval(10);
   
   // INDICATE THAT THE LOW STATE CORRESPONDS TO PHYSICALLY PRESSING THE BUTTON
   button1.setPressedState(LOW); 
   button2.setPressedState(LOW);
-
+  button3.setPressedState(LOW);
+  button4.setPressedState(LOW);
+  
   Keyboard.begin();
   USB.begin();
 
   setup_screen(); 
 
-  // The line below (readSDfile) wouldn't work if SD.begin wasn't called before.
-  // readSDfile can be used as conditional, it returns 'false' if the file does not exist.
+    // Open the CSV file for reading
+  csvFile = SD.open("/encrypt_pass.csv", FILE_READ);
+
+    // Temporary storage for processed lines
+  String newContent = "";
+  
+  while (csvFile.available()) {
+    // Read a line from the CSV file
+    String line = csvFile.readStringUntil('\n');
+
+    // Check if the line contains any character values
+    if (containsCharacter(line)) {
+      // Encrypt the line
+      String encryptedLine = encryptLine(line);
+      newContent += encryptedLine + "\n"; // Append the encrypted line
+    } else {
+      // If no character, keep the line as is
+      newContent += line + "\n";
+    }
+  }
+
+  csvFile.close();
+
+  // Reopen the file for writing
+  csvFile = SD.open("/encrypt_pass.csv", FILE_WRITE);
+
+  // Write the updated content back to the file
+  csvFile.print(newContent);
+  csvFile.close();
+
+  Serial.println("File processing complete.");
+
+
+  //csv parser will read the encrypted file and store it internally in one "block"
   if (en.readSDfile("/encrypt_pass.csv")) {
     
     en_hex=(char**)en[0];
@@ -177,22 +169,25 @@ void setup() {
   } else {
   Serial.println("ERROR: File called '/file.csv' does not exist...");
   }
-  //result = decrypt_display(en_hex[0],0);
-
+  
+  display.fillScreen(SSD1306_WHITE);
+  display.display();
 }
 // button variables
 int buttonState1;         // variable for reading the pushbutton status
 int buttonState2;
 int lastState1 = LOW;
 
-extern Adafruit_SSD1306 display;
 int counter = 0;
+int i = 0;
 
 void loop() {
-  
+
   // read the state of the pushbutton value:
   button1.update();
   button2.update();
+  button3.update();
+  button4.update();
 
   // check if the pushbutton is pressed. If it is, the buttonState is LOW:
   if (button1.pressed()) {
@@ -209,19 +204,19 @@ void loop() {
       counter = 0;
     }
   }
+  
   else
   {
-    display.clearDisplay();
+    //display.clearDisplay();
     display.setTextSize(2);
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(20,10);
     display.setTextSize(2);
     display.println(result.Name);
-/**/display.println(result.strength);
     show();
     Serial.println(result.Name);
-/**/display.println(result.strength);
   }
+  
     
   if (button2.pressed()){
     //button2 pressed
@@ -231,6 +226,74 @@ void loop() {
     Keyboard.write(KEY_RETURN);
   }
   
+  //increment row by 5
+  if (button3.pressed())
+  {
+    Serial.println("button press");
 
+    if (counter < en.getRowsCount()-1 && counter >= 0)
+    {
+      counter = counter + 2;
+    }
+    else {
+      counter = 0;
+    }
+    result = decrypt_display(en_hex[counter],counter);
+  }
+  //decrement row
+  if (button4.pressed())
+  {
+    Serial.println("button press");
+
+    if (counter < en.getRowsCount()-1 && counter > 0)
+    {
+      counter = counter - 1;
+    }
+    else {
+      counter = 0;
+    }
+    result = decrypt_display(en_hex[counter],counter);
+  }
+  
+}
+//checks if there are characters in the line
+bool containsCharacter(const String &line) {
+  for (size_t i = 0; i < line.length(); i++) {
+    char c = line[i];
+    // Check if the character is alphabetic but not a valid hexadecimal character
+    if (isAlpha(c) && !isHexadecimalDigit(c)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Helper function to check if a character is a valid hexadecimal digit
+bool isHexadecimalDigit(char c) {
+  return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+}
+
+// Placeholder encryption function
+String encryptLine(String messageString) {
+  // String to encrypt
+  Serial.print("Original String: ");
+  Serial.println(messageString);
+
+  // Convert String to char array
+  size_t length = messageString.length();
+  char message[length + 1];
+  messageString.toCharArray(message, sizeof(message));
+
+  // Encrypt message
+  encryption.encrypt(message);
+
+  // Convert encrypted byte array to hexadecimal string
+  char hexStr[length * 2 + 1];
+  SimpleArduinoEncryption::bytesToHex((const byte*)message, length, hexStr);
+
+  Serial.print("Encrypted String (Hex): ");
+  Serial.println(hexStr);
+
+  return hexStr;
 }
 #endif

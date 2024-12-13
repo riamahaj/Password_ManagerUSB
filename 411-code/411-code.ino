@@ -6,7 +6,7 @@
 #include "SimpleArduinoEncryption.h"
 #include <SPI.h>
 #include "SD.h"
-#include 
+/**/#include <string>
 
 #ifndef ARDUINO_USB_MODE
 #error This ESP32 SoC has no Native USB interface
@@ -24,7 +24,7 @@ USBHIDKeyboard Keyboard;
 struct name_password{
   char *Name;
   char *password;
-  char *strength;
+/**/char *strength;
 };
 
 typedef struct name_password Struct;
@@ -46,7 +46,7 @@ Bounce2::Button button2 = Bounce2::Button();
 char **en_hex;
 char **Name;
 char **password;
-char **strength
+/**/char **strength
 
 extern int buttonPin1;
 extern int buttonPin2;
@@ -84,7 +84,7 @@ Struct decrypt_display(char *encryptedHex, int row)
   Name = (char**)de[0];
   password = (char**)de[3];
 
-  ////////DanielBreakingStuff/////////
+  ////////DanielBreakingStuffStart/////////
     int n = password.length();
     int Strength = 0;
     string strength = "";
@@ -133,7 +133,7 @@ Struct decrypt_display(char *encryptedHex, int row)
     } else if (Strength == 5) {
         strength = "*****";
 }    
-  ////////DanielBreakingStuff/////////
+  ////////DanielBreakingStuffEnd/////////
   s.Name = Name[row];
   s.password = password[row];
   s.strength = strength;
@@ -216,8 +216,10 @@ void loop() {
     display.setCursor(20,10);
     display.setTextSize(2);
     display.println(result.Name);
+/**/display.println(result.strength);
     show();
     Serial.println(result.Name);
+/**/display.println(result.strength);
   }
     
   if (button2.pressed()){
